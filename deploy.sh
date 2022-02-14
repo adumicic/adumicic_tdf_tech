@@ -1,0 +1,1 @@
+aws secretsmanager create-secret --name tdf_test/api_key --secret-string 20c80020f4e04898a6342122211706

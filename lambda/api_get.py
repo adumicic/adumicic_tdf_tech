@@ -56,8 +56,15 @@ def transform_data(json_data):
                     
     return cols, row_data
 
+
+def get_secret():
+    client = boto3.client('secretsmanager')
+    response = client.get_secret_value(
+        SecretId='tdf_test/api_key'
+    )
+
 def call_api():
-    key = '20c80020f4e04898a6342122211706'
+    key = get_secret()
     url = 'http://api.weatherapi.com/v1/current.json?key={}&q=-37.504136, 145.744302&aqi=no'.format(key)
     response = requests.get(url)
     return response

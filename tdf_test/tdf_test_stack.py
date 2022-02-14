@@ -6,6 +6,7 @@ from aws_cdk import (
     aws_events as events,
     aws_events_targets as targets,
     aws_s3 as s3,
+    aws_secretsmanager as secretsmanager,
 )
 import aws_cdk as cdk
 from aws_cdk.aws_events import Rule, Schedule
