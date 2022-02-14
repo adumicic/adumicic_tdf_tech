@@ -1,7 +1,24 @@
 
-# Welcome to your CDK Python project!
+# TDF Tech Test - API Ingestion Challenge
 
-This is a blank project for Python development with CDK.
+This code deploys a lambda pipeline using AWS CDK. 
+
+## Assumptions
+
+* The API can drop from time to time, so need to control for that within limits. 
+  * If fails more than 3 times, then gracefully exit and try again on next schedule
+* The API key is sensitive and as such needs to be stored securely
+  * Is stored in AWS Secret Manager. You can either get your own free key from the API provider, or contact the developer of this repo.
+* A bash script is used to add key to KMS so that it isn't stored in Github, nor is it logged in the CloudFormation logs
+* Assume that everything fails all the time
+  * Retry the api
+  * Allow for failing gracefully if it doesn't work within the retry bounds
+  * Store the raw JSON as a backup if there is an error in the parquet processing
+* Use least permissions 
+
+## Notes
+
+# CDK Notes, Installation and Setup
 
 The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
