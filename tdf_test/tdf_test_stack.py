@@ -33,8 +33,9 @@ class TdfTestStack(Stack):
                                      removal_policy=RemovalPolicy.DESTROY
                                      )
 
-        # Lambda policy for S3 access
-        lambda_policy = iam.PolicyStatement(effect=iam.Effect.ALLOW, resources=['*'], actions=['s3:PutObject'])
+        # Lambda policies for S3 access
+        lambda_policy_s3 = iam.PolicyStatement(effect=iam.Effect.ALLOW, resources=[f'{bucket.bucket_arn}/*'], actions=['s3:PutObject'])
+        lambda_policy_sm = iam.PolicyStatement(effect=iam.Effect.ALLOW, resources=['*'], actions=['secretsmanager:GetSecretValue'])
 
         # Lambda job
         my_lambda = _lambda.Function(
@@ -50,8 +51,9 @@ class TdfTestStack(Stack):
             layers=[pyarrow_layer]
         )
 
-        # Add policy to Lambda
-        my_lambda.add_to_role_policy(lambda_policy)
+        # Add policies to Lambda
+        my_lambda.add_to_role_policy(lambda_policy_s3)
+        my_lambda.add_to_role_policy(lambda_policy_sm)
 
         # Add Hourly cron job Cloud Watch Event
         rule = events.Rule(self, "Schedule Rule", schedule=events.Schedule.cron(minute="0") )
