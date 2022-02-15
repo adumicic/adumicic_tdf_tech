@@ -23,7 +23,7 @@ Pipeline functionality
 * Retries API a number of times in the case the API is down. Skips the hour if the API is not available
 
 ## Architecture
-![TDF Architecture]('/tdf_arch_diagram.png')
+![TDF Architecture](tdf_arch_diagram.png)
 
 ## Notes and Assumptions
 
