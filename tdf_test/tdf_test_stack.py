@@ -7,6 +7,7 @@ from aws_cdk import (
     aws_events_targets as targets,
     aws_s3 as s3,
     aws_secretsmanager as secretsmanager,
+    aws_glue as glue,
 )
 import aws_cdk as cdk
 from aws_cdk.aws_events import Rule, Schedule
@@ -18,10 +19,17 @@ class TdfTestStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # s3 bucket      
-        bucket = s3.Bucket(self, 
-        "tdf_bucket",
+        bucket_raw = s3.Bucket(self, 
+        "tdf_bucket_raw",
          versioned=True,
-         bucket_name='my-tdf-tech-test',
+         bucket_name='my-tdf-tech-test-raw',
+         removal_policy=RemovalPolicy.DESTROY,
+         auto_delete_objects=True)
+
+        bucket_curated = s3.Bucket(self, 
+        "tdf_bucket_curated",
+         versioned=True,
+         bucket_name='my-tdf-tech-test-curated',
          removal_policy=RemovalPolicy.DESTROY,
          auto_delete_objects=True)
 
@@ -34,7 +42,8 @@ class TdfTestStack(Stack):
                                      )
 
         # Lambda policies for S3 access
-        lambda_policy_s3 = iam.PolicyStatement(effect=iam.Effect.ALLOW, resources=[f'{bucket.bucket_arn}/*'], actions=['s3:PutObject'])
+        lambda_policy_s3_raw = iam.PolicyStatement(effect=iam.Effect.ALLOW, resources=[f'{bucket_raw.bucket_arn}/*'], actions=['s3:PutObject'])
+        lambda_policy_s3_curated = iam.PolicyStatement(effect=iam.Effect.ALLOW, resources=[f'{bucket_curated.bucket_arn}/*'], actions=['s3:PutObject'])
         lambda_policy_sm = iam.PolicyStatement(effect=iam.Effect.ALLOW, resources=['*'], actions=['secretsmanager:GetSecretValue'])
 
         # Lambda job
@@ -46,19 +55,21 @@ class TdfTestStack(Stack):
             timeout = cdk.Duration.seconds(300),
             handler = 'api_get.handler', # file_nyame.handler_function
             environment={
-                "destination_bucket": bucket.bucket_name
+                "raw_bucket": bucket_raw.bucket_name,
+                "curated_bucket": bucket_curated.bucket_name
             },
             layers=[pyarrow_layer]
         )
 
         # Add policies to Lambda
-        my_lambda.add_to_role_policy(lambda_policy_s3)
+        my_lambda.add_to_role_policy(lambda_policy_s3_raw)
+        my_lambda.add_to_role_policy(lambda_policy_s3_curated)
         my_lambda.add_to_role_policy(lambda_policy_sm)
 
         # Add Hourly cron job Cloud Watch Event
         rule = events.Rule(self, "Schedule Rule", schedule=events.Schedule.cron(minute="0") )
         rule.add_target(targets.LambdaFunction(my_lambda))
 
-        # Optional add-ons
-            # Glue table
-            # Glue crawler
+        # Step function?
+        # Secret Manager arn
+        # S3 lifecycle management

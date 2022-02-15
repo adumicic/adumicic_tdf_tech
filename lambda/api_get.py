@@ -153,7 +153,8 @@ def handler(event, context):
     retries = 3
     iterations = 0
 
-    s3_bucket = os.getenv('destination_bucket')
+    raw_bucket = os.getenv('raw_bucket')
+    curated_bucket = os.getenv('curated_bucket')
 
     dt = get_local_datetime()
 
@@ -170,8 +171,8 @@ def handler(event, context):
     if not test_status:
         print(f'API did not respond. Will retry at next scheduled interval.')
         
-    json_obj = save_raw_data(s3_client, response, dt, s3_bucket)
+    json_obj = save_raw_data(s3_client, response, dt, raw_bucket)
     
     table = generate_parquet_table(json_obj)
 
-    save_curated_data(s3_client, table, dt, s3_bucket)
+    save_curated_data(s3_client, table, dt, curated_bucket)

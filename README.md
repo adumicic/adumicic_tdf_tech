@@ -1,7 +1,34 @@
 
-# TDF Tech Test - API Ingestion Challenge
+# TDF - API Ingestion Challenge
 
 This code deploys a lambda pipeline using AWS CDK. 
+
+## Design Notes
+
+The challenge calls for a lambda function which collects data from an api that is periodically called (using Cloud Watch), and the data stored in S3.
+
+In addition to this I have added components to turn this into a data pipeline.
+* Two buckets, one for a raw zone, one for a curated zone, values passed into environment variables of lambda
+* IAM policies to grant least privledges
+* Lambda layer of pyarrow to allow for conversion of API data to parquet
+* Uses Secrets Manager to store API key (secret is set via AWS CLI)
+* Uses DESTROY policies to delete all components (including S3 buckets and associated data) upon calling cdk destroy
+
+Pipeline functionality
+* Retrieves API secret from secret manager
+* Queries the API
+* Saves the raw result to a raw s3 bucket
+* Converts the API result into parquet format
+* Saves to S3 curated bucket
+* Retries API a number of times in the case the API is down. Skips the hour if the API is not available
+
+## Notes
+
+* The Lambda layer requires specific wheels, so the packages are included in the git repo, you do not need to pip install them
+* When creating layers from python packages (on PIP) use the following code, this will ensure all the required parts of the package are installed the correct location for packaging up.
+```
+pip install -t ./layer/python/lib/python3.7/site-packages [package_url.whl] -- note that the version needs to align with linux
+```
 
 ## Assumptions
 
@@ -15,8 +42,6 @@ This code deploys a lambda pipeline using AWS CDK.
   * Allow for failing gracefully if it doesn't work within the retry bounds
   * Store the raw JSON as a backup if there is an error in the parquet processing
 * Use least permissions 
-
-## Notes
 
 # CDK Notes, Installation and Setup
 
