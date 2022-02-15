@@ -22,26 +22,24 @@ Pipeline functionality
 * Saves to S3 curated bucket
 * Retries API a number of times in the case the API is down. Skips the hour if the API is not available
 
-## Notes
+## Architecture
+![TDF Architecture]('/tdf_arch_diagram.png')
 
-* The Lambda layer requires specific wheels, so the packages are included in the git repo, you do not need to pip install them
-* When creating layers from python packages (on PIP) use the following code, this will ensure all the required parts of the package are installed the correct location for packaging up.
-```
-pip install -t ./layer/python/lib/python3.7/site-packages [package_url.whl] -- note that the version needs to align with linux
-```
-
-## Assumptions
+## Notes and Assumptions
 
 * The API can drop from time to time, so need to control for that within limits. 
   * If fails more than 3 times, then gracefully exit and try again on next schedule
 * The API key is sensitive and as such needs to be stored securely
-  * Is stored in AWS Secret Manager. You can either get your own free key from the API provider, or contact the developer of this repo.
+  * Is stored in AWS Secret Manager. You can either get your own free key from the API [provider](https://www.weatherapi.com), or contact the developer of this repo.
 * A bash script is used to add key to KMS so that it isn't stored in Github, nor is it logged in the CloudFormation logs
 * Assume that everything fails all the time
   * Retry the api
   * Allow for failing gracefully if it doesn't work within the retry bounds
   * Store the raw JSON as a backup if there is an error in the parquet processing
 * Use least permissions 
+* For simplicity of deployment, environment and account info is not set in app.py
+* AWS CDK Glue components are still in alpha stage, so are not used due to potential instability
+  * Future work could include adding a Glue database and a Glue Crawler to make this data queryable via Athena
 
 # CDK Notes, Installation and Setup
 

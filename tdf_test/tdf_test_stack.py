@@ -71,5 +71,8 @@ class TdfTestStack(Stack):
         rule.add_target(targets.LambdaFunction(my_lambda))
 
         # Step function?
+            # SNS error reporting
         # Secret Manager arn
         # S3 lifecycle management
+
+        # Add in arch diagram
