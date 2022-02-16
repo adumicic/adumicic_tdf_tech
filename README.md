@@ -37,6 +37,7 @@ In addition to this I have added components to turn this into a data pipeline:
   * If fails more than 3 times, then gracefully exit and try again on next schedule
 * The API key is sensitive and as such needs to be stored securely
   * Is stored in AWS Secret Manager. You can either get your own free key from the API [provider](https://www.weatherapi.com), or contact the developer of this repo.
+  * Due to security issues this is not stored in the code and needs to be deleted manually
 * A bash script is used to add key to KMS so that it isn't stored in Github, nor is it logged in the CloudFormation logs
 * Assume that everything fails all the time
   * Retry the api
@@ -46,6 +47,7 @@ In addition to this I have added components to turn this into a data pipeline:
 * The data in the raw bucket is likely to not be used frequently so a lifecycle rule has been added to move to infrequent access (IA tier) after 30 days
 * For simplicity of deployment, environment and account info is not set in app.py
 * This data may have an SLA, hence the need for notification upon failure
+
   
 # CDK Notes, Installation and Setup
 
@@ -83,6 +85,19 @@ Once the virtualenv is activated, you can install the required dependencies.
 $ pip install -r requirements.txt
 ```
 
+Get the shell scripts ready to run.
+
+```
+chmod 755 ./set_key.sh
+chmod 755 ./destroy.sh
+```
+
+Now you want to set the secrey key in secrets manager using the following.
+
+```
+./set_key.sh
+```
+
 At this point you can now synthesize the CloudFormation template for this code.
 
 ```
@@ -93,7 +108,7 @@ To add additional dependencies, for example other CDK libraries, just add
 them to your `setup.py` file and rerun the `pip install -r requirements.txt`
 command.
 
-## Deploy
+## Deploying
 ```
 cdk deploy
 ```
@@ -103,6 +118,16 @@ If you wish to subscribe to the SNS topic to receive failure notifications use t
 cdk deploy --parameters emailParam='your@swin.edu.au'
 ```
 
+## Destroying
+```
+cdk destroy
+```
+
+If you want to get rid of the api key at the same time you can run the destroy shell script instead.
+```
+./destroy.sh
+```
+
 ## Useful commands
 
  * `cdk ls`          list all stacks in the app
@@ -110,5 +135,6 @@ cdk deploy --parameters emailParam='your@swin.edu.au'
  * `cdk deploy`      deploy this stack to your default AWS account/region
  * `cdk diff`        compare deployed stack with current state
  * `cdk docs`        open CDK documentation
+ * `cdk destroy`     destroy the environment 
 
 Enjoy!

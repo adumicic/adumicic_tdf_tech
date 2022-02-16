@@ -39,7 +39,7 @@ def get_secret() -> json:
     """Retrives the API ket from AWS Secrets manager"""
     client = boto3.client('secretsmanager')
     response = client.get_secret_value(
-        SecretId='tdf_test/api_key'
+        SecretId='my_tdf_test/api_key'
     )
     return response['SecretString']
 

@@ -16,7 +16,7 @@ from aws_cdk import (
 import aws_cdk as cdk
 from aws_cdk.aws_events import Rule, Schedule
 from constructs import Construct
-import os
+import os, json
 
 class TdfTestStack(Stack):
 
@@ -24,12 +24,12 @@ class TdfTestStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # Secret manager
-        acc_no = os.environ["CDK_DEFAULT_ACCOUNT"]
-        region_ = os.environ["CDK_DEFAULT_REGION"]
-        
+        with open('key_details.json') as f:
+            secret_arn = json.loads(f.read())['ARN']
+
         secret = secretsmanager.Secret.from_secret_attributes(self, "ImportedSecret",
-          secret_partial_arn=f"arn:aws:secretsmanager:{region_}:{acc_no}:secret:tdf_test/api_key",
-      )
+            secret_complete_arn=secret_arn,
+        )
 
         # Storage Class
         storage_class = s3.StorageClass.INFREQUENT_ACCESS
@@ -73,21 +73,6 @@ class TdfTestStack(Stack):
         lambda_policy_s3_curated = iam.PolicyStatement(effect=iam.Effect.ALLOW, resources=[f'{bucket_curated.bucket_arn}/*'], actions=['s3:PutObject'])
         lambda_policy_raw_curated = iam.PolicyStatement(effect=iam.Effect.ALLOW, resources=[f'{bucket_raw.bucket_arn}/*'], actions=['s3:GetObject'])
 
-        # # Lambda job
-        # my_lambda = _lambda.Function(
-        #     self, 'TDFHandler',
-        #     runtime = _lambda.Runtime.PYTHON_3_7,
-        #     function_name='tdf_handler',
-        #     code = _lambda.Code.from_asset('lambda'), # folder
-        #     timeout = cdk.Duration.seconds(300),
-        #     handler = 'api_get.handler', # file_name.handler_function
-        #     environment={
-        #         "raw_bucket": bucket_raw.bucket_name,
-        #         "curated_bucket": bucket_curated.bucket_name
-        #     },
-        #     layers=[pyarrow_layer]
-        # )
-
         # Raw Lambda job
         lambda_raw = _lambda.Function(
             self, 'TDFRawHandler',
@@ -99,7 +84,7 @@ class TdfTestStack(Stack):
             environment={
                 "raw_bucket": bucket_raw.bucket_name,
             },
-            layers=[pyarrow_layer]
+            layers=[pyarrow_layer],
         )
 
         # Curated Lambda job
@@ -113,8 +98,12 @@ class TdfTestStack(Stack):
             environment={
                 "curated_bucket": bucket_curated.bucket_name
             },
-            layers=[pyarrow_layer]
-        )        
+            layers=[pyarrow_layer],
+        )
+        
+        ## Get rid of these when destroying
+        lambda_raw.apply_removal_policy=RemovalPolicy.DESTROY
+        lambda_curated.apply_removal_policy=RemovalPolicy.DESTROY
 
         # Add policies to Lambda
         lambda_raw.add_to_role_policy(lambda_policy_s3_raw)
@@ -138,11 +127,11 @@ class TdfTestStack(Stack):
         ))
         
         email_address = cdk.CfnParameter(self, "emailParam")
-
-        # If you want to add an email subscription, update and uncomment the line below
-        # topic.add_subscription(subscriptions.EmailSubscription(email_address.value_as_string))
-        # topic.add_subscription(subscriptions.EmailSubscription(email_address='acdumicich@swin.edu.au'))
         topic.add_subscription(subscriptions.EmailSubscription(email_address.value_as_string))
+
+        ## Get rid of these when destroying
+        topic.apply_removal_policy=RemovalPolicy.DESTROY
+        topic_policy.apply_removal_policy=RemovalPolicy.DESTROY
 
         # Step Function to run the job
         # Create Chain
@@ -194,6 +183,7 @@ class TdfTestStack(Stack):
             definition=definition,
             timeout=Duration.minutes(5),
         )
+        sm.apply_removal_policy=RemovalPolicy.DESTROY
 
         # Add Hourly cron job Cloud Watch Event for Step Function
         rule_sf = events.Rule(self, "Schedule Rule Step Function", schedule=events.Schedule.cron(minute="0") )

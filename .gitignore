@@ -10,4 +10,5 @@ __pycache__
 cdk.out
 
 # Don't add the API key
-deploy.sh
+key_details.json
+set_key.sh
