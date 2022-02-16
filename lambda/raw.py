@@ -1,7 +1,7 @@
 """
 Lambda function to gather data from an API.
 
-It stores the raw data in S3, infers the schema, convert to parquet and then saves to s3 in new place.
+It stores the raw data in S3.
 """
 
 import boto3
@@ -35,11 +35,12 @@ def get_local_datetime() -> datetime:
     return now
 
 
-def get_secret() -> json:
+def get_secret(secret_name) -> json:
     """Retrives the API ket from AWS Secrets manager"""
+
     client = boto3.client('secretsmanager')
     response = client.get_secret_value(
-        SecretId='my_tdf_test/api_key'
+        SecretId=secret_name
     )
     return response['SecretString']
 
@@ -63,10 +64,10 @@ def save_raw_data(s3_client, response, dt, s3_bucket) -> json:
     return json_obj, s3_key
 
 
-def call_api():
+def call_api(secret_name):
     """Function that calls the API"""
 
-    key = get_secret()
+    key = get_secret(secret_name)
     url = 'http://api.weatherapi.com/v1/current.json?key={}&q=-37.504136, 145.744302&aqi=no'.format(key)
     response = requests.get(url)
     return response
@@ -78,6 +79,7 @@ def handler(event, context) -> dict:
         event: -> Returned with status and s3_key
         context: -> Not utilised
     """
+
     return_obj = {"event": event, "status": "SUCCEEDED"}
 
     s3_client = s3fs.S3FileSystem()
@@ -87,24 +89,27 @@ def handler(event, context) -> dict:
     iterations = 0
 
     raw_bucket = os.getenv('raw_bucket')
+    secret_name = os.getenv('secret_name')
 
     dt = get_local_datetime()
 
-    while not test_status and iterations < retries:
-        response = call_api()
-        if response.status_code != 200:
+    while not test_status and iterations < retries: # Keep retrying until you get a '200' status or reach the 'retries' limit
+        response = call_api(secret_name)
+        if response.status_code != 200: # If you don't get a 200 status, it is assumed something went wrong and will retry
             print(f'API not responding, status code: {response.status_code}')        
-            time.sleep(3)
+            time.sleep(3) # Wait 3 seconds between retries
         else:
             test_status = True
             print('Response OK. Continuing.')
-        iterations += 1
+        iterations += 1 
 
     if not test_status:
         print(f'API did not respond. Will retry at next scheduled interval.')
         return_obj['status'] = "FAILED"
         
     json_obj, s3_key = save_raw_data(s3_client, response, dt, raw_bucket)
+
+    # Add the newly created S3 Key back into the SFN Payload so that the following jobs are able to access this.
     return_obj['s3_key'] = s3_key
 
     return return_obj

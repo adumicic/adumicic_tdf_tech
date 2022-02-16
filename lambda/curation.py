@@ -1,7 +1,5 @@
 """
-Lambda function to gather data from an API.
-
-It stores the raw data in S3, infers the schema, convert to parquet and then saves to s3 in new place.
+Lambda function to gather JSON data, convert to parquet and then saves to s3 in new place.
 """
 
 import boto3
@@ -24,6 +22,7 @@ def is_date(string, fuzzy=False) -> bool:
     :param string: str, string to check for date
     :param fuzzy: bool, ignore unknown tokens in string if True
     """
+
     try: 
         parse(string, fuzzy=fuzzy)
         return True
@@ -32,7 +31,15 @@ def is_date(string, fuzzy=False) -> bool:
     
     
 def infer_schema(columns, values) -> list:
-    """Checks data types of values in a list and infers the parquet datatypes"""
+    """
+    Checks data types of values in a list and infers the parquet datatypes
+    
+    The following data types are supported:
+        * Nulls    - pa.null()
+        * Integers - pa.int32()
+        * Floats   - pa.float32()
+        * Strings  - pa.string()    
+    """
 
     data_types = []
 
@@ -55,13 +62,13 @@ def transform_data(json_data) -> (list, list):
     cols = []
     row_data = []
 
-    for k, v in json_data.items():
-        for kk, vv in v.items():
-            if not isinstance(json_data[k][kk], Mapping):
+    for key, val in json_data.items():
+        for kk, vv in val.items():
+            if not isinstance(json_data[key][kk], Mapping):
                 cols.append(kk)
                 row_data.append(vv)
             else:
-                for sub_key, value in json_data[k][kk].items():
+                for sub_key, value in json_data[key][kk].items():
                     cols.append(sub_key)
                     row_data.append(value)
                     
@@ -90,16 +97,22 @@ def save_curated_data(s3_client, table, dt, s3_bucket) -> None:
 def generate_parquet_table(json_obj) -> pa.Table:
     """Converts the original JSON data into Parquet format for improved queryability"""
 
+    # Flatten out the data
     columns, values = transform_data(json_obj)
+
+    # Infer the schema in the data
     parquet_schema = infer_schema(columns, values)
 
+    # convert the data into pyarrow arrays
     parquet_data = [pa.array([values[k]]) for k,v in enumerate(columns)]
 
+    # Create a batch object of the data (arrays) and inferred schema
     batch = pa.RecordBatch.from_arrays(
         parquet_data,
         schema = pa.schema(parquet_schema)
     )
 
+    # Create the parquet table
     table = pa.Table.from_batches([batch])
 
     return table
@@ -111,6 +124,7 @@ def handler(event, context) -> dict:
         event: -> Returned with status
         context: -> Not utilised
     """
+
     return_obj = {"event": event, "status": "SUCCEEDED"}
 
     s3_client = s3fs.S3FileSystem()

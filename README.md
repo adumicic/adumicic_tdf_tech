@@ -47,7 +47,6 @@ In addition to this I have added components to turn this into a data pipeline:
 * The data in the raw bucket is likely to not be used frequently so a lifecycle rule has been added to move to infrequent access (IA tier) after 30 days
 * For simplicity of deployment, environment and account info is not set in app.py
 * This data may have an SLA, hence the need for notification upon failure
-
   
 # CDK Notes, Installation and Setup
 
@@ -57,8 +56,7 @@ This project is set up like a standard Python project.  The initialization
 process also creates a virtualenv within this project, stored under the `.venv`
 directory.  To create the virtualenv it assumes that there is a `python3`
 (or `python` for Windows) executable in your path with access to the `venv`
-package. If for any reason the automatic creation of the virtualenv fails,
-you can create the virtualenv manually.
+package. 
 
 To manually create a virtualenv on MacOS and Linux:
 
@@ -92,7 +90,7 @@ chmod 755 ./set_key.sh
 chmod 755 ./destroy.sh
 ```
 
-Now you want to set the secrey key in secrets manager using the following.
+Now you want to set the secrey key in secrets manager using the following file. Note that the secret name is set in this file and is used again in the `destroy.sh` file so if you want to change the name, you should update both files.
 
 ```
 ./set_key.sh
@@ -104,26 +102,21 @@ At this point you can now synthesize the CloudFormation template for this code.
 $ cdk synth
 ```
 
-To add additional dependencies, for example other CDK libraries, just add
-them to your `setup.py` file and rerun the `pip install -r requirements.txt`
-command.
-
 ## Deploying
+You can add your email in this parameter should you wish to subscribe to the SNS topic and receive failure notifications.
 ```
-cdk deploy
-```
-
-If you wish to subscribe to the SNS topic to receive failure notifications use this code instead
-```
-cdk deploy --parameters emailParam='your@swin.edu.au'
+cdk deploy --parameters emailParam='your@email.com.au'
 ```
 
 ## Destroying
+
+To destroy the Cloud Formation stack run the following code.
+
 ```
 cdk destroy
 ```
 
-If you want to get rid of the api key at the same time you can run the destroy shell script instead.
+If you want to get rid of the api key at the same time as the Cloud Formation Stack you can run the destroy shell script instead.
 ```
 ./destroy.sh
 ```
@@ -135,6 +128,5 @@ If you want to get rid of the api key at the same time you can run the destroy s
  * `cdk deploy`      deploy this stack to your default AWS account/region
  * `cdk diff`        compare deployed stack with current state
  * `cdk docs`        open CDK documentation
- * `cdk destroy`     destroy the environment 
 
 Enjoy!

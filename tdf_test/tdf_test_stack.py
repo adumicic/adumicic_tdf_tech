@@ -25,7 +25,13 @@ class TdfTestStack(Stack):
 
         # Secret manager
         with open('key_details.json') as f:
-            secret_arn = json.loads(f.read())['ARN']
+            try:
+                json_f = json.loads(f.read())
+                secret_arn = json_f['ARN']
+                key_name = json_f['Name']
+            except:
+                print("There was an error loading the key details. Did you run the 'set_key.sh' file before deploying?")
+                exit(1)
 
         secret = secretsmanager.Secret.from_secret_attributes(self, "ImportedSecret",
             secret_complete_arn=secret_arn,
@@ -83,6 +89,7 @@ class TdfTestStack(Stack):
             handler = 'raw.handler', # file_name.handler_function
             environment={
                 "raw_bucket": bucket_raw.bucket_name,
+                "secret_name": key_name,
             },
             layers=[pyarrow_layer],
         )
