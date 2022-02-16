@@ -7,20 +7,26 @@ This code deploys a lambda pipeline using AWS CDK.
 
 The challenge calls for a lambda function which collects data from an api that is periodically called (using Cloud Watch), and the data stored in S3.
 
-In addition to this I have added components to turn this into a data pipeline.
+In addition to this I have added components to turn this into a data pipeline:
 * Two buckets, one for a raw zone, one for a curated zone, values passed into environment variables of lambda
 * IAM policies to grant least privledges
 * Lambda layer of pyarrow to allow for conversion of API data to parquet
-* Uses Secrets Manager to store API key (secret is set via AWS CLI)
-* Uses DESTROY policies to delete all components (including S3 buckets and associated data) upon calling cdk destroy
+* Use of Secrets Manager to store API key (secret is set via AWS CLI)
+* Uses DESTROY policies to delete components (including S3 buckets and associated data) upon calling cdk destroy
+* Step function to manage the flow and allow for error notifications
 
-Pipeline functionality
+### Pipeline functionality:
 * Retrieves API secret from secret manager
 * Queries the API
+* Retries API a number of times in the case the API is down. Skips the hour if the API is not available
 * Saves the raw result to a raw s3 bucket
 * Converts the API result into parquet format
 * Saves to S3 curated bucket
-* Retries API a number of times in the case the API is down. Skips the hour if the API is not available
+* If the jobs fails an email notification is sent via SNS
+
+### Next Steps:
+* Adding a Glue database and a Glue Crawler to make this data queryable via Athena
+  * AWS CDK Glue components are still in alpha stage, so are not used due to potential instability
 
 ## Architecture
 ![TDF Architecture](tdf_arch_diagram.png)
@@ -36,11 +42,11 @@ Pipeline functionality
   * Retry the api
   * Allow for failing gracefully if it doesn't work within the retry bounds
   * Store the raw JSON as a backup if there is an error in the parquet processing
-* Use least permissions 
+* Use least permissions
+* The data in the raw bucket is likely to not be used frequently so a lifecycle rule has been added to move to infrequent access (IA tier) after 30 days
 * For simplicity of deployment, environment and account info is not set in app.py
-* AWS CDK Glue components are still in alpha stage, so are not used due to potential instability
-  * Future work could include adding a Glue database and a Glue Crawler to make this data queryable via Athena
-
+* This data may have an SLA, hence the need for notification upon failure
+  
 # CDK Notes, Installation and Setup
 
 The `cdk.json` file tells the CDK Toolkit how to execute your app.
@@ -86,6 +92,16 @@ $ cdk synth
 To add additional dependencies, for example other CDK libraries, just add
 them to your `setup.py` file and rerun the `pip install -r requirements.txt`
 command.
+
+## Deploy
+```
+cdk deploy
+```
+
+If you wish to subscribe to the SNS topic to receive failure notifications use this code instead
+```
+cdk deploy --parameters emailParam='your@swin.edu.au'
+```
 
 ## Useful commands
 

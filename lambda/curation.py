@@ -76,34 +76,6 @@ def get_local_datetime() -> datetime:
     return now
 
 
-def get_secret() -> json:
-    """Retrives the API ket from AWS Secrets manager"""
-    client = boto3.client('secretsmanager')
-    response = client.get_secret_value(
-        SecretId='tdf_test/api_key'
-    )
-    return response['SecretString']
-
-
-def save_raw_data(s3_client, response, dt, s3_bucket) -> json:
-    """Saves the raw data direct from the API into S3 in case there is an issue processing the later steps"""
-
-    try:
-        json_obj = response.json()
-        s3_key = f's3://{s3_bucket}/raw/{dt.year}/{dt.month}/{dt.day}/{dt.hour}.json'
-
-        json_text = json.dumps(json_obj)
-
-        with s3_client.open(s3_key, 'w') as f:
-            json.dump(json_text, f)
-        print(f'Raw API response saved to s3://{s3_bucket}/raw/')
-
-    except ValueError:
-        print('API response does not contain properly formed JSON. Exiting.')
-
-    return json_obj
-
-
 def save_curated_data(s3_client, table, dt, s3_bucket) -> None:
     """Saves the curated parquet version of the data in S3"""
 
@@ -114,13 +86,6 @@ def save_curated_data(s3_client, table, dt, s3_bucket) -> None:
         
     print(f'Parquet file saved to s3://{s3_bucket}/curated/')
 
-def call_api():
-    """Function that calls the API"""
-
-    key = get_secret()
-    url = 'http://api.weatherapi.com/v1/current.json?key={}&q=-37.504136, 145.744302&aqi=no'.format(key)
-    response = requests.get(url)
-    return response
 
 def generate_parquet_table(json_obj) -> pa.Table:
     """Converts the original JSON data into Parquet format for improved queryability"""
@@ -143,38 +108,25 @@ def generate_parquet_table(json_obj) -> pa.Table:
 def handler(event, context) -> dict:
     """Handler function used to run the code for AWS Labmda.
 
-        event: -> Returned unused
+        event: -> Returned with status
         context: -> Not utilised
     """
     return_obj = {"event": event, "status": "SUCCEEDED"}
 
     s3_client = s3fs.S3FileSystem()
 
-    test_status = False
-    retries = 3
-    iterations = 0
-
     raw_bucket = os.getenv('raw_bucket')
     curated_bucket = os.getenv('curated_bucket')
 
     dt = get_local_datetime()
 
-    while not test_status and iterations < retries:
-        response = call_api()
-        if response.status_code != 200:
-            print(f'API not responding, status code: {response.status_code}')        
-            time.sleep(3)
-        else:
-            test_status = True
-            print('Response OK. Continuing.')
-        iterations += 1
+    with s3_client.open(event['s3_key'], 'rb') as f:
+        try:
+             json_obj = json.loads(json.loads(f.read()))
+        except:
+            return_obj['status'] = "FAILED"
+            return return_obj
 
-    if not test_status:
-        print(f'API did not respond. Will retry at next scheduled interval.')
-        return_obj['status'] = "FAILED"
-        
-    json_obj = save_raw_data(s3_client, response, dt, raw_bucket)
-    
     table = generate_parquet_table(json_obj)
 
     save_curated_data(s3_client, table, dt, curated_bucket)
