@@ -11,11 +11,12 @@ In addition to this I have added components to turn this into a data pipeline:
 * Two buckets, one for a raw zone, one for a curated zone, values passed into environment variables of lambda
 * IAM policies to grant least privledges
 * Lambda layer of pyarrow to allow for conversion of API data to parquet
-* Use of Secrets Manager to store API key (secret is set via AWS CLI)
+* Use of Secrets Manager to store API key (secret is set using AWS CLI in a shell script for security reasons)
 * Uses DESTROY policies to delete components (including S3 buckets and associated data) upon calling cdk destroy
-* Step function to manage the flow and allow for error notifications
+* Step functions are used to manage the flow and allow for error notifications in SNS
 
 ### Pipeline functionality:
+
 * Retrieves API secret from secret manager
 * Queries the API
 * Retries API a number of times in the case the API is down. Skips the hour if the API is not available
@@ -24,29 +25,27 @@ In addition to this I have added components to turn this into a data pipeline:
 * Saves to S3 curated bucket
 * If the jobs fails an email notification is sent via SNS
 
-### Next Steps:
-* Adding a Glue database and a Glue Crawler to make this data queryable via Athena
-  * AWS CDK Glue components are still in alpha stage, so are not used due to potential instability
-
 ## Architecture
 ![TDF Architecture](tdf_arch_diagram.png)
 
+### Next Steps to improve the architecture in future:
+
+* Adding a Glue database and a Glue Crawler to make this data queryable via Athena
+  * AWS CDK Glue components are still in alpha stage, so are not used due to potential instability
+
 ## Notes and Assumptions
 
-* The API can drop from time to time, so need to control for that within limits. 
-  * If fails more than 3 times, then gracefully exit and try again on next schedule
-* The API key is sensitive and as such needs to be stored securely
-  * Is stored in AWS Secret Manager. You can either get your own free key from the API [provider](https://www.weatherapi.com), or contact the developer of this repo.
-  * Due to security issues this is not stored in the code and needs to be deleted manually
-* A bash script is used to add key to KMS so that it isn't stored in Github, nor is it logged in the CloudFormation logs
-* Assume that everything fails all the time
-  * Retry the api
-  * Allow for failing gracefully if it doesn't work within the retry bounds
+* Assuming that everything fails all the time
+  * The API could drop from time to time, so need to control for that (within limits). 
+    * If fails more than 3 times, then gracefully exit and try again on next schedule
   * Store the raw JSON as a backup if there is an error in the parquet processing
-* Use least permissions
+* The API key is sensitive and as such needs to be stored securely
+  * The key is stored in AWS Secret Manager.
+  * A shell script is used to add key to KMS so that it isn't stored in Github, nor is it logged in the CloudFormation logs
+* Use least permissions on roles
 * The data in the raw bucket is likely to not be used frequently so a lifecycle rule has been added to move to infrequent access (IA tier) after 30 days
 * For simplicity of deployment, environment and account info is not set in app.py
-* This data may have an SLA, hence the need for notification upon failure
+* This data may have an SLA, hence the need for notification upon failure using SNS
   
 # CDK Notes, Installation and Setup
 
